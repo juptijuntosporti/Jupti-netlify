@@ -257,7 +257,8 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                 case 'visits':
                     responsibleIds = [parentB || parentA];
                     // ✅ CORREÇÃO: Usar a nova lógica de cálculo de vencimento para visitas
-                    const vPreferredDays = data.preferred_days || data.dias_preferidos || data.days || [];
+                    // Lê os dias preferidos do frontend (recurrent_days, preferred_days, dias_preferidos ou days)
+                    const vPreferredDays = data.recurrent_days || data.preferred_days || data.dias_preferidos || data.days || [];
                     const vStartDate = data.start_date || data.data_inicio || data.inicio;
                     
                     let visitDate;
