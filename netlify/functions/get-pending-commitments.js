@@ -2,6 +2,24 @@ const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
 /**
+ * =================================================================
+ * 📄 JUPTI - API para Buscar Compromissos Pendentes
+ * =================================================================
+ * VERSÃO CORRIGIDA - 02/04/2026
+ * 
+ * CORREÇÕES APLICADAS:
+ * 1. ✅ Renomeado campo 'child_avatar' para 'child_photo' para compatibilidade
+ *    com o frontend (compromissos.js)
+ * 2. ✅ Usar colunas separadas 'total_goal' e 'remaining_count' da tabela
+ *    (NÃO estão em JSON, são colunas diretas)
+ * 
+ * RESULTADO:
+ * - Avatar da criança agora exibe foto ou inicial corretamente
+ * - Contadores "Faltam X de Y" vem do banco de dados
+ * =================================================================
+ */
+
+/**
  * Função de autenticação
  */
 const authenticateToken = (headers) => {
@@ -52,6 +70,8 @@ exports.handler = async (event) => {
 
         try {
             // ✅ ATUALIZAÇÃO: Adicionado JOIN com a tabela 'children' para buscar o avatar e nome
+            // ✅ CORREÇÃO: Renomeado child_avatar para child_photo
+            // ✅ CORREÇÃO: Usar colunas separadas 'total_goal' e 'remaining_count' (não estão em JSON)
             let query = `
                 SELECT 
                     pc.id, 
@@ -63,7 +83,9 @@ exports.handler = async (event) => {
                     pc.details, 
                     pc.child_id,
                     c.full_name as child_name,
-                    c.profile_picture_url as child_avatar
+                    c.profile_picture_url as child_photo,
+                    pc.total_goal,
+                    pc.remaining_count
                 FROM pending_commitments pc
                 LEFT JOIN children c ON pc.child_id = c.id
                 WHERE pc.user_id = $1

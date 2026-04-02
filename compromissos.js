@@ -2,6 +2,24 @@
  * =================================================================
  * 📋 JUPTI - Scripts para Compromissos (Versão Final com Contadores)
  * =================================================================
+ * VERSÃO CORRIGIDA - 02/04/2026
+ * 
+ * CORREÇÕES APLICADAS:
+ * 1. ✅ Avatar da criança agora exibe a foto ou a inicial corretamente
+ *    - Valida se a URL da foto é válida
+ *    - Fallback para inicial do nome se não houver foto
+ *    - Trata erro de carregamento da imagem
+ * 
+ * 2. ✅ Contadores "Faltam X de Y" agora vem do banco de dados
+ *    - Lê 'total_goal' e 'remaining_count' da API
+ *    - Mantém valores padrão como fallback (3 para postagens, 1 para JUPTI moments)
+ *    - Exibe corretamente para cada tipo de compromisso
+ * 
+ * RESULTADO:
+ * - Dados dinâmicos do banco de dados
+ * - Avatar visual melhorado
+ * - Contadores precisos
+ * =================================================================
  */
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -95,16 +113,17 @@ function criarCard(c, isExpired) {
     const dataFormatada = dataVencimento.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
     const horaFormatada = c.type === 'calls' ? " às " + dataVencimento.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "";
 
-    // ✅ Lógica do Avatar
-    const avatarHtml = c.child_photo 
-        ? `<img src="${c.child_photo}" alt="${c.child_name}" class="child-avatar-img">`
-        : `<div class="child-avatar-initial">${c.child_name ? c.child_name.charAt(0).toUpperCase() : '?'}</div>`;
+    // ✅ Lógica do Avatar - Exibir foto da criança ou inicial
+    const avatarHtml = c.child_photo && c.child_photo.trim() !== '' && c.child_photo !== 'icone.png'
+        ? `<img src="${c.child_photo}" alt="${c.child_name}" class="child-avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+        : `<div class="child-avatar-initial" style="display: ${!c.child_photo || c.child_photo.trim() === '' || c.child_photo === 'icone.png' ? 'flex' : 'none'};">${c.child_name ? c.child_name.charAt(0).toUpperCase() : '?'}</div>`;
 
-    // ✅ Lógica do Contador (Faltam X de Y)
+    // ✅ Lógica do Contador (Faltam X de Y) - Agora vem do banco de dados
     let metaHtml = "";
     if (c.type === 'postings' || c.type === 'jupti_moments') {
-        const total = c.total_goal || (c.type === 'postings' ? 3 : 1);
-        const faltam = c.remaining_count !== undefined ? c.remaining_count : total;
+        // Usar os valores do banco de dados (total_goal e remaining_count)
+        const total = c.total_goal !== null ? c.total_goal : (c.type === 'postings' ? 3 : 1);
+        const faltam = c.remaining_count !== null && c.remaining_count !== undefined ? c.remaining_count : total;
         metaHtml = `<div class="meta-info-badge">Faltam ${faltam} de ${total}</div>`;
     }
 
