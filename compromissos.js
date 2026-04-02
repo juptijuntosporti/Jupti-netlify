@@ -1,32 +1,103 @@
 /**
  * =================================================================
- * 📋 JUPTI - Scripts para Compromissos (Versão Final com Contadores)
+ * 📋 JUPTI - Scripts para Compromissos (Versão com Filtros Completos)
  * =================================================================
  * VERSÃO CORRIGIDA - 02/04/2026
  * 
  * CORREÇÕES APLICADAS:
  * 1. ✅ Avatar da criança agora exibe a foto ou a inicial corretamente
- *    - Valida se a URL da foto é válida
- *    - Fallback para inicial do nome se não houver foto
- *    - Trata erro de carregamento da imagem
- * 
  * 2. ✅ Contadores "Faltam X de Y" agora vem do banco de dados
- *    - Lê 'total_goal' e 'remaining_count' da API
- *    - Mantém valores padrão como fallback (3 para postagens, 1 para JUPTI moments)
- *    - Exibe corretamente para cada tipo de compromisso
- * 
- * RESULTADO:
- * - Dados dinâmicos do banco de dados
- * - Avatar visual melhorado
- * - Contadores precisos
+ * 3. ✅ FILTROS IMPLEMENTADOS E FUNCIONANDO
+ *    - Filtro por Status: Todos, Pendentes, Vencidos (Não Cumpridos)
+ *    - Filtro por Criança: Busca crianças da API e filtra corretamente
+ *    - Contadores dinâmicos em cada filtro
+ *    - Atualização em tempo real
  * =================================================================
  */
 
+// Variáveis globais
+let todosCompromissos = [];
+let todasCriancas = [];
+let filtroAtual = 'todos';
+let criancaSelecionada = null;
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("🚀 Iniciando carregamento de compromissos...");
+    await carregarCriancas();
     await carregarCompromissos();
 });
 
+/**
+ * CARREGAR LISTA DE CRIANÇAS DO USUÁRIO
+ */
+async function carregarCriancas() {
+    try {
+        const token = localStorage.getItem('authTokenJUPTI');
+        if (!token) return;
+
+        const response = await fetch('/.netlify/functions/get-children-profiles', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.status === 401) throw new Error("Sessão inválida.");
+        const data = await response.json();
+
+        if (data.success && data.children && data.children.length > 0) {
+            todasCriancas = data.children;
+            console.log(`👶 ${todasCriancas.length} criança(s) carregada(s)`);
+            preencherFiltrosCriancas();
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar crianças:', error);
+    }
+}
+
+/**
+ * PREENCHER DINAMICAMENTE OS FILTROS DE CRIANÇAS
+ */
+function preencherFiltrosCriancas() {
+    const listaCriancas = document.getElementById('lista-criancas');
+    if (!listaCriancas) return;
+
+    listaCriancas.innerHTML = '';
+
+    todasCriancas.forEach(crianca => {
+        const filterItem = document.createElement('div');
+        filterItem.className = 'filter-item';
+        filterItem.onclick = () => filtrarPorCrianca(crianca.id, crianca.full_name);
+        
+        const avatarUrl = crianca.profile_picture_url && crianca.profile_picture_url.trim() !== ''
+            ? crianca.profile_picture_url
+            : null;
+
+        const avatarHtml = avatarUrl
+            ? `<img src="${avatarUrl}" alt="${crianca.full_name}" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 10px; object-fit: cover;">`
+            : `<div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #0f4c5c 0%, #1a6b7a 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; margin-right: 10px;">${crianca.full_name.charAt(0).toUpperCase()}</div>`;
+
+        filterItem.innerHTML = `
+            ${avatarHtml}
+            <span>${crianca.full_name}</span>
+        `;
+        
+        listaCriancas.appendChild(filterItem);
+    });
+}
+
+/**
+ * FILTRAR POR CRIANÇA ESPECÍFICA
+ */
+function filtrarPorCrianca(childId, childName) {
+    console.log(`👶 Filtrando por criança: ${childName} (ID: ${childId})`);
+    criancaSelecionada = childId;
+    localStorage.setItem('selected_child_id', childId);
+    
+    // Recarregar compromissos com o novo filtro
+    carregarCompromissos();
+}
+
+/**
+ * CARREGAR COMPROMISSOS COM FILTRO DE CRIANÇA
+ */
 async function carregarCompromissos() {
     const listaContainer = document.getElementById('lista-compromissos');
     if (!listaContainer) return;
@@ -46,11 +117,15 @@ async function carregarCompromissos() {
             return;
         }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const childId = urlParams.get('child_id') || localStorage.getItem('selected_child_id');
-        
+        // Usar criança selecionada ou recuperar do localStorage
+        if (!criancaSelecionada) {
+            criancaSelecionada = localStorage.getItem('selected_child_id');
+        }
+
         let url = '/.netlify/functions/get-pending-commitments';
-        if (childId) url += `?child_id=${childId}`;
+        if (criancaSelecionada) {
+            url += `?child_id=${criancaSelecionada}`;
+        }
 
         const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -60,15 +135,100 @@ async function carregarCompromissos() {
         const data = await response.json();
 
         if (data.success && data.commitments && data.commitments.length > 0) {
-            renderizarLista(data.commitments);
-            atualizarEstatisticas(data.commitments);
+            todosCompromissos = data.commitments;
+            renderizarLista(todosCompromissos);
+            atualizarEstatisticas(todosCompromissos);
+            atualizarContadoresFiltros();
         } else {
+            todosCompromissos = [];
             listaContainer.innerHTML = `<div style="text-align: center; padding: 40px 20px; color: #888;"><p>Nenhum compromisso pendente.</p></div>`;
             atualizarEstatisticas([]);
+            atualizarContadoresFiltros();
         }
     } catch (error) {
         console.error('❌ Erro:', error);
     }
+}
+
+/**
+ * FUNÇÃO PRINCIPAL DE FILTRO POR STATUS
+ */
+function filtrar(tipo) {
+    filtroAtual = tipo;
+    console.log(`🔍 Aplicando filtro de status: ${tipo}`);
+    
+    // Atualizar classe ativa nos botões
+    document.querySelectorAll('.filter-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Encontrar e marcar o filtro clicado como ativo
+    const filtroClicado = Array.from(document.querySelectorAll('.filter-item')).find(item => {
+        const span = item.querySelector('span:nth-of-type(2)');
+        if (!span) return false;
+        
+        if (tipo === 'todos') return span.textContent.includes('Todos');
+        if (tipo === 'pendente') return span.textContent.includes('Aguardando');
+        if (tipo === 'nao-cumprido') return span.textContent.includes('Não Cumpridos');
+    });
+    
+    if (filtroClicado) {
+        filtroClicado.classList.add('active');
+    }
+    
+    // Filtrar compromissos
+    let compromissosFiltrados = [];
+    const agora = new Date();
+    
+    if (tipo === 'todos') {
+        compromissosFiltrados = todosCompromissos.filter(c => c.status === 'pendente');
+    } else if (tipo === 'pendente') {
+        // Pendentes = não vencidos
+        compromissosFiltrados = todosCompromissos.filter(c => {
+            const isExpired = new Date(c.due_date) < agora;
+            return !isExpired && c.status === 'pendente';
+        });
+    } else if (tipo === 'nao-cumprido') {
+        // Não cumpridos = vencidos
+        compromissosFiltrados = todosCompromissos.filter(c => {
+            const isExpired = new Date(c.due_date) < agora;
+            return isExpired && c.status === 'pendente';
+        });
+    }
+    
+    // Renderizar lista filtrada
+    renderizarLista(compromissosFiltrados);
+    atualizarEstatisticas(compromissosFiltrados);
+}
+
+/**
+ * ATUALIZAR CONTADORES DOS FILTROS
+ */
+function atualizarContadoresFiltros() {
+    const agora = new Date();
+    
+    // Total de compromissos pendentes
+    const totalPendentes = todosCompromissos.filter(c => c.status === 'pendente').length;
+    
+    // Compromissos não cumpridos (vencidos)
+    const naoCumpridos = todosCompromissos.filter(c => {
+        const isExpired = new Date(c.due_date) < agora;
+        return isExpired && c.status === 'pendente';
+    }).length;
+    
+    // Compromissos aguardando (não vencidos)
+    const aguardando = totalPendentes - naoCumpridos;
+    
+    // Atualizar contadores na interface
+    const countTodos = document.getElementById('count-todos');
+    const countNaoCumprido = document.getElementById('count-nao-cumprido');
+    const countPendente = document.getElementById('count-pendente');
+    
+    if (countTodos) countTodos.textContent = totalPendentes;
+    if (countNaoCumprido) countNaoCumprido.textContent = naoCumpridos;
+    if (countPendente) countPendente.textContent = aguardando;
+    
+    console.log(`📊 Contadores atualizados - Total: ${totalPendentes}, Vencidos: ${naoCumpridos}, Aguardando: ${aguardando}`);
 }
 
 function renderizarLista(commitments) {
@@ -87,6 +247,17 @@ function renderizarLista(commitments) {
         return !isExpired && c.status === 'pendente';
     });
 
+    // Se não há compromissos, mostrar mensagem
+    if (naoCumpridos.length === 0 && pendentes.length === 0) {
+        listaContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: #888;">
+                <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+                <p>Nenhum compromisso nesta categoria.</p>
+            </div>
+        `;
+        return;
+    }
+
     if (naoCumpridos.length > 0) {
         const title = document.createElement('div');
         title.className = 'section-title';
@@ -99,7 +270,7 @@ function renderizarLista(commitments) {
         const pendingTitle = document.createElement('div');
         pendingTitle.className = 'section-title';
         pendingTitle.style.marginTop = '30px';
-        pendingTitle.innerHTML = '<i class="fas fa-clock" style="color: #616161;"></i> Pendentes';
+        pendingTitle.innerHTML = '<i class="fas fa-hourglass-half" style="color: #616161;"></i> Aguardando';
         listaContainer.appendChild(pendingTitle);
         pendentes.forEach(c => listaContainer.appendChild(criarCard(c, false)));
     }
@@ -118,10 +289,9 @@ function criarCard(c, isExpired) {
         ? `<img src="${c.child_photo}" alt="${c.child_name}" class="child-avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
         : `<div class="child-avatar-initial" style="display: ${!c.child_photo || c.child_photo.trim() === '' || c.child_photo === 'icone.png' ? 'flex' : 'none'};">${c.child_name ? c.child_name.charAt(0).toUpperCase() : '?'}</div>`;
 
-    // ✅ Lógica do Contador (Faltam X de Y) - Agora vem do banco de dados
+    // ✅ Lógica do Contador (Faltam X de Y)
     let metaHtml = "";
     if (c.type === 'postings' || c.type === 'jupti_moments') {
-        // Usar os valores do banco de dados (total_goal e remaining_count)
         const total = c.total_goal !== null ? c.total_goal : (c.type === 'postings' ? 3 : 1);
         const faltam = c.remaining_count !== null && c.remaining_count !== undefined ? c.remaining_count : total;
         metaHtml = `<div class="meta-info-badge">Faltam ${faltam} de ${total}</div>`;
