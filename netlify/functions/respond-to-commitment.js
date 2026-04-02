@@ -3,6 +3,17 @@
  * 🤝 JUPTI - API para Responder a um Compromisso (respond-to-commitment.js)
  * =================================================================
  * ✅ VERSÃO SUPREMA - CORREÇÃO DE METAS (POSTAGENS E MOMENTOS)
+ * ✅ VERSÃO 2.0 - CORREÇÃO DE VENCIMENTO DE VISITAS
+ * 
+ * MUDANÇAS:
+ * - Adicionada função calcularVencimentoVisita() para calcular corretamente
+ *   o vencimento de visitas baseado nos dias preferidos
+ * - REGRA: Vence no ÜLTIMO DIA ESCOLHIDO às 23:59
+ * 
+ * EXEMPLOS:
+ * - Escolheu: ["sábado", "domingo"] → Vence no domingo
+ * - Escolheu: ["segunda", "terça"] → Vence na terça
+ * - Escolheu: ["segunda", "terça", "quarta"] → Vence na quarta
  */
 
 const { Pool } = require('pg');
@@ -70,6 +81,64 @@ function getSecondSunday(date) {
         if (sundays < 2) d.setDate(d.getDate() + 1);
     }
     return d;
+}
+
+/**
+ * 3️⃣ Função para calcular vencimento de VISITAS
+ * Regra: Vence no ÜLTIMO DIA ESCOLHIDO às 23:59
+ * 
+ * Exemplos:
+ * - Escolheu: ["sábado", "domingo"] → Vence no domingo
+ * - Escolheu: ["segunda", "terça"] → Vence na terça
+ * - Escolheu: ["segunda", "terça", "quarta"] → Vence na quarta
+ */
+function calcularVencimentoVisita(diasPreferidos) {
+    const hoje = new Date();
+    const diaAtual = hoje.getDay();
+
+    // Se não houver dias preferidos, vence no próximo domingo
+    if (!diasPreferidos || !Array.isArray(diasPreferidos) || diasPreferidos.length === 0) {
+        return getProximoDomingoVencimento();
+    }
+
+    // Mapear dias para números (0=domingo, 1=segunda, ..., 6=sábado)
+    const daysMap = {
+        'domingo': 0, 'dom': 0,
+        'segunda': 1, 'segunda-feira': 1, 'seg': 1,
+        'terça': 2, 'terça-feira': 2, 'terca': 2, 'terca-feira': 2, 'ter': 2,
+        'quarta': 3, 'quarta-feira': 3, 'qua': 3,
+        'quinta': 4, 'quinta-feira': 4, 'qui': 4,
+        'sexta': 5, 'sexta-feira': 5, 'sex': 5,
+        'sábado': 6, 'sabado': 6, 'sab': 6
+    };
+
+    // Converter dias preferidos para números
+    const diasNumeros = diasPreferidos
+        .map(dia => {
+            const diaLimpo = String(dia).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return daysMap[diaLimpo];
+        })
+        .filter(dia => dia !== undefined);
+
+    if (diasNumeros.length === 0) {
+        return getProximoDomingoVencimento();
+    }
+
+    // Ordenar dias para encontrar o ÜLTIMO
+    diasNumeros.sort((a, b) => a - b);
+    const ultimoDia = diasNumeros[diasNumeros.length - 1];
+
+    // Calcular a próxima ocorrência do ÜLTIMO dia escolhido
+    let diff = ultimoDia - diaAtual;
+    if (diff <= 0) {
+        diff += 7;
+    }
+
+    const vencimento = new Date(hoje);
+    vencimento.setDate(hoje.getDate() + diff);
+    vencimento.setHours(23, 59, 59, 999);
+    
+    return vencimento;
 }
 
 /**
@@ -187,15 +256,28 @@ async function generatePendingCommitments(client, commitmentId, childId, details
 
                 case 'visits':
                     responsibleIds = [parentB || parentA];
+                    // ✅ CORREÇÃO: Usar a nova lógica de cálculo de vencimento para visitas
+                    const vPreferredDays = data.preferred_days || data.dias_preferidos || data.days || [];
                     const vStartDate = data.start_date || data.data_inicio || data.inicio;
-                    if (vStartDate) {
-                        let vDate = new Date(vStartDate);
-                        vDate.setHours(23, 59, 59);
-                        dueDates.push({ expiry: vDate, meta: 1 });
+                    
+                    let visitDate;
+                    if (vPreferredDays && Array.isArray(vPreferredDays) && vPreferredDays.length > 0) {
+                        // Se houver dias preferidos, calcular vencimento baseado neles
+                        visitDate = calcularVencimentoVisita(vPreferredDays);
+                        console.log(`📅 Visita: dias preferidos [${vPreferredDays.join(', ')}] -> vence em ${visitDate.toLocaleDateString('pt-BR')}`);
+                    } else if (vStartDate) {
+                        // Se houver data de início, usar ela
+                        visitDate = new Date(vStartDate);
+                        visitDate.setHours(23, 59, 59, 999);
+                        console.log(`📅 Visita: data de início ${vStartDate} -> vence em ${visitDate.toLocaleDateString('pt-BR')}`);
                     } else {
-                        dueDates.push({ expiry: getProximoDomingoVencimento(), meta: 1 });
+                        // Fallback: próximo domingo
+                        visitDate = getProximoDomingoVencimento();
+                        console.log(`📅 Visita: sem dias preferidos -> vence no próximo domingo`);
                     }
-                    itemDetails = `Tipo: ${data.type || 'Visita'}.`;
+                    
+                    dueDates.push({ expiry: visitDate, meta: 1 });
+                    itemDetails = `Tipo: ${data.type || 'Visita'}. Dias: ${vPreferredDays.join(', ') || 'Não especificado'}.`;
                     break;
             }
 
