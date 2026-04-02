@@ -2,7 +2,7 @@
  * =================================================================
  * 🤝 JUPTI - API para Responder a um Compromisso (respond-to-commitment.js)
  * =================================================================
- * ✅ VERSÃO SUPREMA - CORREÇÃO DE FUSO HORÁRIO (BRASÍLIA UTC-3)
+ * ✅ VERSÃO SUPREMA - CORREÇÃO DE METAS (POSTAGENS E MOMENTOS)
  */
 
 const { Pool } = require('pg');
@@ -22,13 +22,9 @@ const authenticateToken = (headers) => {
 
 /**
  * 1️⃣ Função para obter o próximo dia da semana (ALGORITMO DE LIGAÇÃO)
- * ✅ AJUSTE: Agora considera o Fuso Horário de Brasília (UTC-3)
  */
 function getProximoDiaSemana(diaDesejado, horaDesejada) {
     const hoje = new Date();
-    
-    // Converte a hora atual do servidor para o horário de Brasília para comparação
-    // Brasília está 3 horas atrás do UTC (GMT-3)
     const hojeBrasilia = new Date(hoje.getTime() - (3 * 60 * 60 * 1000));
     const diaAtual = hojeBrasilia.getUTCDay();
     const [horas, minutos] = (horaDesejada || '18:00').split(':').map(Number);
@@ -42,13 +38,9 @@ function getProximoDiaSemana(diaDesejado, horaDesejada) {
         if (agoraEmMinutos >= horaDesejadaEmMinutos) diff = 7;
     }
 
-    // Calcula a data final
     const resultado = new Date(hojeBrasilia);
     resultado.setUTCDate(hojeBrasilia.getUTCDate() + diff);
     resultado.setUTCHours(horas, minutos, 0, 0);
-    
-    // Converte de volta para UTC antes de salvar no banco (adicionando 3 horas)
-    // Assim, quando o banco salvar, ele terá o valor absoluto correto para o fuso brasileiro
     return new Date(resultado.getTime() + (3 * 60 * 60 * 1000));
 }
 
@@ -158,7 +150,10 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                 case 'postings':
                 case 'jupti_moments':
                     responsibleIds = [parentA || parentB];
-                    const metaVal = parseInt(data.goal || data.meta || (normalizedKey === 'postings' ? '3' : '1'));
+                    // ✅ CORREÇÃO DE META: Tenta ler goal, meta ou frequency
+                    let metaVal = parseInt(data.goal || data.meta || data.frequency || (normalizedKey === 'postings' ? '3' : '1'));
+                    if (isNaN(metaVal) || metaVal <= 0) metaVal = (normalizedKey === 'postings' ? 3 : 1);
+                    
                     const domVenc = getProximoDomingoVencimento();
                     dueDates.push({ expiry: domVenc, meta: metaVal });
                     itemDetails = `Meta: ${metaVal}. Faltam: ${metaVal}.`;
@@ -175,7 +170,6 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                             const diaNum = daysMap[diaLimpo];
                             if (diaNum !== undefined) {
                                 const callDate = getProximoDiaSemana(diaNum, callTime);
-                                // Adiciona 1 hora de tolerância (vencimento)
                                 const expiryDate = new Date(callDate.getTime() + (1 * 60 * 60 * 1000));
                                 dueDates.push({ expiry: expiryDate, meta: 1 });
                             }
@@ -188,7 +182,6 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                         const defaultExpiry = new Date(defaultDate.getTime() + (1 * 60 * 60 * 1000));
                         dueDates.push({ expiry: defaultExpiry, meta: 1 });
                     }
-                    
                     itemDetails = `Horário agendado: ${callTime}. Tolerância: 1 hora.`;
                     break;
 
@@ -219,7 +212,7 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                         rId, commitmentId, childId, title, normalizedKey, dObj.expiry.toISOString(), urgency, 'pendente', 
                         itemDetails, dObj.meta, dObj.meta
                     ]);
-                    console.log(`✅ Gerado: ${title} para usuário ${rId}`);
+                    console.log(`✅ Gerado: ${title} para usuário ${rId} com meta ${dObj.meta}`);
                 }
             }
         } catch (err) {

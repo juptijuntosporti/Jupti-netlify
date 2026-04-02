@@ -77,13 +77,12 @@ function renderizarLista(commitments) {
         naoCumpridos.forEach(c => listaContainer.appendChild(criarCard(c, true)));
     }
 
-    const pendingTitle = document.createElement('div');
-    pendingTitle.className = 'section-title';
-    pendingTitle.style.marginTop = '30px';
-    pendingTitle.innerHTML = '<i class="fas fa-clock" style="color: #616161;"></i> Pendentes';
-    listaContainer.appendChild(pendingTitle);
-
     if (pendentes.length > 0) {
+        const pendingTitle = document.createElement('div');
+        pendingTitle.className = 'section-title';
+        pendingTitle.style.marginTop = '30px';
+        pendingTitle.innerHTML = '<i class="fas fa-clock" style="color: #616161;"></i> Pendentes';
+        listaContainer.appendChild(pendingTitle);
         pendentes.forEach(c => listaContainer.appendChild(criarCard(c, false)));
     }
 }
@@ -97,16 +96,16 @@ function criarCard(c, isExpired) {
     const horaFormatada = c.type === 'calls' ? " às " + dataVencimento.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "";
 
     // ✅ Lógica do Avatar
-    const avatarHtml = c.child_avatar 
-        ? `<img src="${c.child_avatar}" alt="${c.child_name}" class="child-avatar-img">`
+    const avatarHtml = c.child_photo 
+        ? `<img src="${c.child_photo}" alt="${c.child_name}" class="child-avatar-img">`
         : `<div class="child-avatar-initial">${c.child_name ? c.child_name.charAt(0).toUpperCase() : '?'}</div>`;
 
-    // ✅ Lógica do Contador (Algoritmo de Postagem)
+    // ✅ Lógica do Contador (Faltam X de Y)
     let metaHtml = "";
     if (c.type === 'postings' || c.type === 'jupti_moments') {
-        const total = c.total_goal || 0;
-        const restante = c.remaining_count !== undefined ? c.remaining_count : total;
-        metaHtml = `<div class="meta-info-badge">Faltam ${restante} de ${total}</div>`;
+        const total = c.total_goal || (c.type === 'postings' ? 3 : 1);
+        const faltam = c.remaining_count !== undefined ? c.remaining_count : total;
+        metaHtml = `<div class="meta-info-badge">Faltam ${faltam} de ${total}</div>`;
     }
 
     item.innerHTML = `
