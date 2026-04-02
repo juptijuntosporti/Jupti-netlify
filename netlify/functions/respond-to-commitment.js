@@ -2,7 +2,7 @@
  * =================================================================
  * 🤝 JUPTI - API para Responder a um Compromisso (respond-to-commitment.js)
  * =================================================================
- * ✅ VERSÃO SUPREMA - MAPEAMENTO TOTAL DE CHAVES (BUG #1 RESOLVIDO)
+ * ✅ VERSÃO SUPREMA - LIGAÇÕES PARA AMBOS OS PAIS (CORREÇÃO FINAL)
  */
 
 const { Pool } = require('pg');
@@ -26,7 +26,7 @@ const authenticateToken = (headers) => {
 function getProximoDiaSemana(diaDesejado, horaDesejada) {
     const hoje = new Date();
     const diaAtual = hoje.getDay();
-    const [horas, minutos] = horaDesejada.split(':').map(Number);
+    const [horas, minutos] = (horaDesejada || '18:00').split(':').map(Number);
 
     let diff = diaDesejado - diaAtual;
     if (diff < 0) {
@@ -76,7 +76,6 @@ function getSecondSunday(date) {
  */
 async function generatePendingCommitments(client, commitmentId, childId, details) {
     console.log(`🚀 Iniciando geração robusta para UUID: ${commitmentId}`);
-    console.log("📦 Detalhes recebidos:", JSON.stringify(details));
 
     const guardianQuery = `SELECT user_id, relationship_type FROM child_guardians WHERE child_id = $1;`;
     const guardianResult = await client.query(guardianQuery, [childId]);
@@ -93,17 +92,23 @@ async function generatePendingCommitments(client, commitmentId, childId, details
         pension: 'Pagamento de Pensão'
     };
 
+    // 🗺️ MAPEAMENTO ROBUSTO DE DIAS DA SEMANA (Trata acentos e variações)
     const daysMap = {
-        'domingo': 0, 'segunda': 1, 'terça': 2, 'quarta': 3, 'quinta': 4, 'sexta': 5, 'sábado': 6,
-        'segunda-feira': 1, 'terça-feira': 2, 'quarta-feira': 3, 'quinta-feira': 4, 'sexta-feira': 5, 'sábado-feira': 6
+        'domingo': 0, 'dom': 0,
+        'segunda': 1, 'segunda-feira': 1, 'seg': 1,
+        'terça': 2, 'terça-feira': 2, 'terca': 2, 'terca-feira': 2, 'ter': 2,
+        'quarta': 3, 'quarta-feira': 3, 'qua': 3,
+        'quinta': 4, 'quinta-feira': 4, 'qui': 4,
+        'sexta': 5, 'sexta-feira': 5, 'sex': 5,
+        'sábado': 6, 'sabado': 6, 'sab': 6
     };
 
-    // 🗺️ MAPEAMENTO TOTAL DE CHAVES (Bug #1)
+    // 🗺️ MAPEAMENTO TOTAL DE CHAVES (Trata nomes em PT e EN)
     const keyMap = {
-        postings: ['postings', 'postagens', 'posting'],
-        jupti_moments: ['jupti_moments', 'momentos_jupti', 'jupti_moment'],
+        postings: ['postings', 'postagens', 'posting', 'foto', 'fotos'],
+        jupti_moments: ['jupti_moments', 'momentos_jupti', 'jupti_moment', 'momentos', 'momento'],
         calls: ['calls', 'ligações', 'ligação', 'ligacoes', 'ligacao', 'call'],
-        visits: ['visits', 'visitas', 'visita', 'visit'],
+        visits: ['visits', 'visitas', 'visita', 'visit', 'convivência', 'convivencia'],
         pension: ['pension', 'pensão', 'pensao']
     };
 
@@ -111,7 +116,6 @@ async function generatePendingCommitments(client, commitmentId, childId, details
 
     for (const normalizedKey in keyMap) {
         try {
-            // Tenta encontrar o item no objeto details usando qualquer uma das chaves mapeadas
             let item = null;
             for (const alias of keyMap[normalizedKey]) {
                 if (details[alias]) {
@@ -120,16 +124,10 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                 }
             }
 
-            if (!item) {
-                console.log(`⚠️ Tipo ${normalizedKey} não encontrado nos detalhes.`);
-                continue;
-            }
+            if (!item) continue;
 
             const isAccepted = item.status === 'accepted' || item.status === 'aceito';
-            if (!isAccepted) {
-                console.log(`⏭️ Tipo ${normalizedKey} ignorado (Status: ${item.status})`);
-                continue;
-            }
+            if (!isAccepted) continue;
 
             const data = item.suggestion || item.sugestão || item.original || item;
             
@@ -154,20 +152,23 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                 case 'jupti_moments':
                     responsibleIds = [parentA || parentB];
                     const metaVal = parseInt(data.goal || data.meta || (normalizedKey === 'postings' ? '3' : '1'));
-                    const diasPost = data.preferred_days || data.dias_preferidos || [];
                     const domVenc = getProximoDomingoVencimento();
                     dueDates.push({ expiry: domVenc, meta: metaVal });
-                    itemDetails = `Meta: ${metaVal}. Faltam: ${metaVal}. Dias: ${Array.isArray(diasPost) ? diasPost.join(', ') : ''}`;
+                    itemDetails = `Meta: ${metaVal}. Faltam: ${metaVal}.`;
                     break;
 
                 case 'calls':
+                    // ✅ REGRA DE OURO: LIGAÇÃO É PARA OS DOIS PAIS
                     responsibleIds = [parentA, parentB].filter(id => id != null);
+                    
                     const callDays = data.preferred_days || data.dias_preferidos || data.days || [];
                     const callTime = data.time || data.horário || data.horario || '18:00';
                     
-                    if (callDays.length > 0) {
+                    // Se houver dias específicos, calcula para cada um
+                    if (Array.isArray(callDays) && callDays.length > 0) {
                         callDays.forEach(dayName => {
-                            const diaNum = daysMap[dayName.toLowerCase()];
+                            const diaLimpo = String(dayName).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                            const diaNum = daysMap[diaLimpo];
                             if (diaNum !== undefined) {
                                 const callDate = getProximoDiaSemana(diaNum, callTime);
                                 const expiryDate = new Date(callDate);
@@ -175,10 +176,17 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                                 dueDates.push({ expiry: expiryDate, meta: 1 });
                             }
                         });
-                    } else {
-                        // Fallback se não houver dias específicos
-                        dueDates.push({ expiry: getProximoDomingoVencimento(), meta: 1 });
                     }
+                    
+                    // Se ainda não gerou data (ou não tinha dias específicos), garante pelo menos uma ocorrência
+                    if (dueDates.length === 0) {
+                        const defaultDate = getProximoDomingoVencimento();
+                        defaultDate.setHours(18, 0, 0, 0);
+                        const defaultExpiry = new Date(defaultDate);
+                        defaultExpiry.setHours(defaultExpiry.getHours() + 1);
+                        dueDates.push({ expiry: defaultExpiry, meta: 1 });
+                    }
+                    
                     itemDetails = `Horário agendado: ${callTime}. Tolerância: 1 hora.`;
                     break;
 
@@ -192,7 +200,7 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                     } else {
                         dueDates.push({ expiry: getProximoDomingoVencimento(), meta: 1 });
                     }
-                    itemDetails = `Tipo: ${data.type || 'Visita'}. Período: ${vStartDate || ''} até ${data.end_date || data.fim || ''}`;
+                    itemDetails = `Tipo: ${data.type || 'Visita'}.`;
                     break;
             }
 
@@ -209,11 +217,11 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                         rId, commitmentId, childId, title, normalizedKey, dObj.expiry.toISOString(), urgency, 'pendente', 
                         itemDetails, dObj.meta, dObj.meta
                     ]);
-                    console.log(`✅ Inserido com sucesso: ${title} para usuário ${rId}`);
+                    console.log(`✅ Gerado: ${title} para usuário ${rId}`);
                 }
             }
         } catch (err) {
-            console.error(`❌ Erro crítico ao processar tipo ${normalizedKey}:`, err);
+            console.error(`❌ Erro no tipo ${normalizedKey}:`, err);
         }
     }
 }
