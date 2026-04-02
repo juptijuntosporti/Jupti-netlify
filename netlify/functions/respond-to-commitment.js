@@ -2,7 +2,7 @@
  * =================================================================
  * 🤝 JUPTI - API para Responder a um Compromisso (respond-to-commitment.js)
  * =================================================================
- * ✅ VERSÃO SUPREMA - LIGAÇÕES PARA AMBOS OS PAIS (CORREÇÃO FINAL)
+ * ✅ VERSÃO SUPREMA - CORREÇÃO DE FUSO HORÁRIO (BRASÍLIA UTC-3)
  */
 
 const { Pool } = require('pg');
@@ -22,25 +22,34 @@ const authenticateToken = (headers) => {
 
 /**
  * 1️⃣ Função para obter o próximo dia da semana (ALGORITMO DE LIGAÇÃO)
+ * ✅ AJUSTE: Agora considera o Fuso Horário de Brasília (UTC-3)
  */
 function getProximoDiaSemana(diaDesejado, horaDesejada) {
     const hoje = new Date();
-    const diaAtual = hoje.getDay();
+    
+    // Converte a hora atual do servidor para o horário de Brasília para comparação
+    // Brasília está 3 horas atrás do UTC (GMT-3)
+    const hojeBrasilia = new Date(hoje.getTime() - (3 * 60 * 60 * 1000));
+    const diaAtual = hojeBrasilia.getUTCDay();
     const [horas, minutos] = (horaDesejada || '18:00').split(':').map(Number);
 
     let diff = diaDesejado - diaAtual;
     if (diff < 0) {
         diff += 7;
     } else if (diff === 0) {
-        const agoraEmMinutos = hoje.getHours() * 60 + hoje.getMinutes();
+        const agoraEmMinutos = hojeBrasilia.getUTCHours() * 60 + hojeBrasilia.getUTCMinutes();
         const horaDesejadaEmMinutos = horas * 60 + minutos;
         if (agoraEmMinutos >= horaDesejadaEmMinutos) diff = 7;
     }
 
-    const resultado = new Date(hoje);
-    resultado.setDate(hoje.getDate() + diff);
-    resultado.setHours(horas, minutos, 0, 0);
-    return resultado;
+    // Calcula a data final
+    const resultado = new Date(hojeBrasilia);
+    resultado.setUTCDate(hojeBrasilia.getUTCDate() + diff);
+    resultado.setUTCHours(horas, minutos, 0, 0);
+    
+    // Converte de volta para UTC antes de salvar no banco (adicionando 3 horas)
+    // Assim, quando o banco salvar, ele terá o valor absoluto correto para o fuso brasileiro
+    return new Date(resultado.getTime() + (3 * 60 * 60 * 1000));
 }
 
 /**
@@ -92,7 +101,6 @@ async function generatePendingCommitments(client, commitmentId, childId, details
         pension: 'Pagamento de Pensão'
     };
 
-    // 🗺️ MAPEAMENTO ROBUSTO DE DIAS DA SEMANA (Trata acentos e variações)
     const daysMap = {
         'domingo': 0, 'dom': 0,
         'segunda': 1, 'segunda-feira': 1, 'seg': 1,
@@ -103,7 +111,6 @@ async function generatePendingCommitments(client, commitmentId, childId, details
         'sábado': 6, 'sabado': 6, 'sab': 6
     };
 
-    // 🗺️ MAPEAMENTO TOTAL DE CHAVES (Trata nomes em PT e EN)
     const keyMap = {
         postings: ['postings', 'postagens', 'posting', 'foto', 'fotos'],
         jupti_moments: ['jupti_moments', 'momentos_jupti', 'jupti_moment', 'momentos', 'momento'],
@@ -158,32 +165,27 @@ async function generatePendingCommitments(client, commitmentId, childId, details
                     break;
 
                 case 'calls':
-                    // ✅ REGRA DE OURO: LIGAÇÃO É PARA OS DOIS PAIS
                     responsibleIds = [parentA, parentB].filter(id => id != null);
-                    
                     const callDays = data.preferred_days || data.dias_preferidos || data.days || [];
                     const callTime = data.time || data.horário || data.horario || '18:00';
                     
-                    // Se houver dias específicos, calcula para cada um
                     if (Array.isArray(callDays) && callDays.length > 0) {
                         callDays.forEach(dayName => {
                             const diaLimpo = String(dayName).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                             const diaNum = daysMap[diaLimpo];
                             if (diaNum !== undefined) {
                                 const callDate = getProximoDiaSemana(diaNum, callTime);
-                                const expiryDate = new Date(callDate);
-                                expiryDate.setHours(expiryDate.getHours() + 1);
+                                // Adiciona 1 hora de tolerância (vencimento)
+                                const expiryDate = new Date(callDate.getTime() + (1 * 60 * 60 * 1000));
                                 dueDates.push({ expiry: expiryDate, meta: 1 });
                             }
                         });
                     }
                     
-                    // Se ainda não gerou data (ou não tinha dias específicos), garante pelo menos uma ocorrência
                     if (dueDates.length === 0) {
                         const defaultDate = getProximoDomingoVencimento();
                         defaultDate.setHours(18, 0, 0, 0);
-                        const defaultExpiry = new Date(defaultDate);
-                        defaultExpiry.setHours(defaultExpiry.getHours() + 1);
+                        const defaultExpiry = new Date(defaultDate.getTime() + (1 * 60 * 60 * 1000));
                         dueDates.push({ expiry: defaultExpiry, meta: 1 });
                     }
                     
