@@ -87,15 +87,20 @@ function processarDadosCompromissos(commitments) {
     const total = commitments.length;
     const presencaValue = total > 0 ? Math.round(((cumpridos + justificados) / total) * 100) : 100;
     
-    // Atualizar presença sem o símbolo %
+    // Calcular presença parental corretamente
+    // Só conta: Cumpridos, Não Cumpridos e Justificados (Pendentes NÃO contam)
+    const totalComprometido = cumpridos + naoCumpridos + justificados;
+    const presencaCorrigida = totalComprometido > 0 ? Math.round(((cumpridos + justificados) / totalComprometido) * 100) : 100;
+    
+    // Atualizar presença com %
     const presencaElement = document.getElementById('presenca-parental');
     if (presencaElement) {
-        presencaElement.textContent = presencaValue > 0 ? presencaValue : '';
+        presencaElement.textContent = `${presencaCorrigida}%`;
     }
     
     const progressBar = document.getElementById('progress-bar-fill');
     if (progressBar) {
-        progressBar.style.width = `${presencaValue}%`;
+        progressBar.style.width = `${presencaCorrigida}%`;
     }
     document.getElementById('stats-cumpridos').textContent = cumpridos;
     document.getElementById('stats-nao-cumpridos').textContent = naoCumpridos;

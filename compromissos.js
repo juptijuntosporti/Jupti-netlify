@@ -12,6 +12,9 @@
  *    - Filtro por Criança: Busca crianças da API e filtra corretamente
  *    - Contadores dinâmicos em cada filtro
  *    - Atualização em tempo real
+ * 4. ✅ PRESENÇA PARENTAL CORRIGIDA
+ *    - Só conta: Cumpridos, Não Cumpridos e Justificados
+ *    - Pendentes NÃO interferem na barra
  * =================================================================
  */
 
@@ -320,15 +323,36 @@ function criarCard(c, isExpired) {
 }
 
 function atualizarEstatisticas(commitments) {
-    const total = commitments.length;
     const agora = new Date();
-    const naoCumpridos = commitments.filter(c => new Date(c.due_date) < agora).length;
-    const pendentes = total - naoCumpridos;
+    
+    // Contar por status
+    let cumpridos = 0;
+    let naoCumpridos = 0;
+    let justificados = 0;
+    let pendentes = 0;
+
+    commitments.forEach(c => {
+        const isExpired = new Date(c.due_date) < agora;
+        
+        if (c.status === 'completed') {
+            cumpridos++;
+        } else if (c.status === 'justified') {
+            justificados++;
+        } else if (isExpired && c.status === 'pendente') {
+            naoCumpridos++;
+        } else if (!isExpired && c.status === 'pendente') {
+            pendentes++;
+        }
+    });
 
     if (document.getElementById('stats-nao-cumpridos')) document.getElementById('stats-nao-cumpridos').textContent = naoCumpridos;
     if (document.getElementById('stats-pendentes')) document.getElementById('stats-pendentes').textContent = pendentes;
     
-    const presencaValue = total > 0 ? Math.round(((total - naoCumpridos) / total) * 100) : 100;
+    // Calcular presença parental corretamente
+    // Só conta: Cumpridos, Não Cumpridos e Justificados (Pendentes NÃO contam)
+    const totalComprometido = cumpridos + naoCumpridos + justificados;
+    const presencaValue = totalComprometido > 0 ? Math.round(((cumpridos + justificados) / totalComprometido) * 100) : 100;
+    
     if (document.getElementById('presenca-parental')) document.getElementById('presenca-parental').textContent = `${presencaValue}%`;
     if (document.getElementById('progress-bar-fill')) document.getElementById('progress-bar-fill').style.width = `${presencaValue}%`;
 }
