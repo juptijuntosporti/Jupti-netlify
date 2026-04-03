@@ -87,8 +87,16 @@ function processarDadosCompromissos(commitments) {
     const total = commitments.length;
     const presencaValue = total > 0 ? Math.round(((cumpridos + justificados) / total) * 100) : 100;
     
-    document.getElementById('presenca-parental').textContent = `${presencaValue}%`;
-    document.getElementById('progress-bar-fill').style.width = `${presencaValue}%`;
+    // Atualizar presença sem o símbolo %
+    const presencaElement = document.getElementById('presenca-parental');
+    if (presencaElement) {
+        presencaElement.textContent = presencaValue > 0 ? presencaValue : '';
+    }
+    
+    const progressBar = document.getElementById('progress-bar-fill');
+    if (progressBar) {
+        progressBar.style.width = `${presencaValue}%`;
+    }
     document.getElementById('stats-cumpridos').textContent = cumpridos;
     document.getElementById('stats-nao-cumpridos').textContent = naoCumpridos;
     document.getElementById('stats-pendentes').textContent = pendentes;
