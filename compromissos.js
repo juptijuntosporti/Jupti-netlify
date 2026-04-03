@@ -345,6 +345,7 @@ function atualizarEstatisticas(commitments) {
         }
     });
 
+    if (document.getElementById('stats-cumpridos')) document.getElementById('stats-cumpridos').textContent = cumpridos;
     if (document.getElementById('stats-nao-cumpridos')) document.getElementById('stats-nao-cumpridos').textContent = naoCumpridos;
     if (document.getElementById('stats-pendentes')) document.getElementById('stats-pendentes').textContent = pendentes;
     
