@@ -89,7 +89,12 @@ function preencherFiltrosCriancas() {
 function filtrarPorCrianca(childId, childName) {
     console.log(`👶 Filtrando por criança: ${childName} (ID: ${childId})`);
     criancaSelecionada = childId;
-    localStorage.setItem('selected_child_id', childId);
+    
+    if (childId) {
+        localStorage.setItem('selected_child_id', childId);
+    } else {
+        localStorage.removeItem('selected_child_id');
+    }
     
     // Recarregar compromissos com o novo filtro
     carregarCompromissos();
