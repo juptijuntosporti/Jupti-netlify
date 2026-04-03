@@ -23,6 +23,9 @@ let criancaSelecionada = null;
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("🚀 Iniciando carregamento de compromissos...");
+    // Limpar seleção de criança na primeira carga para mostrar TODOS os compromissos
+    criancaSelecionada = null;
+    localStorage.removeItem('selected_child_id');
     await carregarCriancas();
     await carregarCompromissos();
 });
@@ -122,10 +125,8 @@ async function carregarCompromissos() {
             return;
         }
 
-        // Usar criança selecionada ou recuperar do localStorage
-        if (!criancaSelecionada) {
-            criancaSelecionada = localStorage.getItem('selected_child_id');
-        }
+        // Usar criança selecionada (se houver)
+        // Se criancaSelecionada for null, a API retorna TODOS os compromissos
 
         let url = '/.netlify/functions/get-pending-commitments';
         if (criancaSelecionada) {
