@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="global.css"/>
   <link rel="stylesheet" href="linha_juridica.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
 
@@ -31,11 +31,11 @@
             <i class="fas fa-chart-line" style="margin-right: 8px; color: #0f4c5c;"></i>
             Índice de Presença Parental:
           </div>
-          <div class="lj-stats-value">72%</div>
+          <div class="lj-stats-value" id="presenca-parental">72%</div>
         </div>
         <div class="lj-progress-container">
           <div class="lj-progress-bar">
-            <div class="lj-progress-fill" style="width: 72%;"></div>
+            <div class="lj-progress-fill" id="progress-bar-fill" style="width: 72%;"></div>
           </div>
         </div>
         <div class="lj-stats-row">
@@ -43,66 +43,52 @@
             <i class="fas fa-check-circle" style="margin-right: 8px; color: #2e7d32;"></i>
             Compromissos Cumpridos:
           </div>
-          <div class="lj-stats-value">12</div>
+          <div class="lj-stats-value" id="stats-cumpridos">12</div>
         </div>
         <div class="lj-stats-row">
           <div class="lj-stats-label">
             <i class="fas fa-times-circle" style="margin-right: 8px; color: #c62828;"></i>
             Compromissos Não Cumpridos:
           </div>
-          <div class="lj-stats-value">4</div>
+          <div class="lj-stats-value" id="stats-nao-cumpridos">4</div>
         </div>
         <div class="lj-stats-row">
           <div class="lj-stats-label">
             <i class="fas fa-clock" style="margin-right: 8px; color: #616161;"></i>
             Pendentes:
           </div>
-          <div class="lj-stats-value">2</div>
+          <div class="lj-stats-value" id="stats-pendentes">2</div>
         </div>
       </div>
       
-      <!-- Seção de Compromissos -->
-      <div class="lj-compromissos-card">
-        <div class="lj-section-title" style="cursor: pointer;" onclick="navegarPara('compromissos.html')">
-          <i class="fas fa-calendar-check" style="margin-right: 8px;"></i>
-          Compromissos
-          <i class="fas fa-chevron-right" style="font-size: 14px; margin-left: auto; color: #888;"></i>
+      <!-- Seção de Gráficos -->
+      <div class="lj-graphics-section">
+        <div class="lj-graphics-title">
+          <i class="fas fa-chart-bar" style="margin-right: 8px;"></i>
+          Resumo de Compromissos
         </div>
         
-        <!-- Compromisso 2: Vídeo Chamada Não Cumprido -->
-        <div class="lj-commitment-item">
-          <div class="lj-commitment-left">
-            <div class="lj-commitment-title">
-              <i class="fas fa-video" style="margin-right: 8px; color: #0f4c5c;"></i>
-              Vídeo chamada
-            </div>
-            <div class="lj-commitment-date">Vence 18, abr. 2024</div>
+        <div class="lj-graphics-container">
+          <!-- Gráfico 1: Cumpridos -->
+          <div class="lj-graphic-card">
+            <div class="lj-graphic-title">Cumpridos</div>
+            <canvas id="chartCumpridos" style="max-height: 200px;"></canvas>
+            <div class="lj-graphic-value" id="valueCumpridos">0</div>
           </div>
-          <div class="lj-commitment-status lj-status-failed">NÃO CUMPRIDO</div>
-        </div>
-        
-        <!-- Compromisso 3: Fotos Não Cumprido -->
-        <div class="lj-commitment-item">
-          <div class="lj-commitment-left">
-            <div class="lj-commitment-title">
-              <i class="fas fa-camera" style="margin-right: 8px; color: #0f4c5c;"></i>
-              Fotos
-            </div>
-            <div class="lj-commitment-date">Vence 5, abr. 2024</div>
+          
+          <!-- Gráfico 2: Não Cumpridos -->
+          <div class="lj-graphic-card">
+            <div class="lj-graphic-title">Não Cumpridos</div>
+            <canvas id="chartNaoCumpridos" style="max-height: 200px;"></canvas>
+            <div class="lj-graphic-value" id="valueNaoCumpridos">0</div>
           </div>
-          <div class="lj-commitment-status lj-status-failed">NÃO CUMPRIDO</div>
-        </div>
-        
-        <!-- Compromisso 4: Participação escolar -->
-        <div class="lj-commitment-item">
-          <div class="lj-commitment-left">
-            <div class="lj-commitment-title">
-              <i class="fas fa-school" style="margin-right: 8px; color: #0f4c5c;"></i>
-              Participação escolar
-            </div>
-            <div class="lj-commitment-date">Vence 25, abr. 2024</div>
+          
+          <!-- Gráfico 3: Justificados -->
+          <div class="lj-graphic-card">
+            <div class="lj-graphic-title">Justificados</div>
+            <canvas id="chartJustificados" style="max-height: 200px;"></canvas>
+            <div class="lj-graphic-value" id="valueJustificados">0</div>
           </div>
-          <div class="lj-commitment-status lj-status-pending">PENDENTE</div>
         </div>
       </div>
       

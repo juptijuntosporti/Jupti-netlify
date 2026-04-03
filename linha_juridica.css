@@ -380,3 +380,124 @@
 .lj-action-button:nth-child(3) { animation-delay: 0.7s; }
 .lj-action-button:nth-child(4) { animation-delay: 0.8s; }
 
+
+
+/* ================================================
+   📊 Seção de Gráficos Dinâmicos
+   ================================================ */
+
+.lj-graphics-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafb 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(15, 76, 92, 0.08);
+  border: 1px solid rgba(15, 76, 92, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.lj-graphics-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #0f4c5c 0%, #1a6b7a 100%);
+}
+
+.lj-graphics-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f4c5c;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(15, 76, 92, 0.1);
+}
+
+.lj-graphics-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.lj-graphic-card {
+  background: linear-gradient(135deg, #f8fafb 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(15, 76, 92, 0.06);
+  border: 1px solid rgba(15, 76, 92, 0.04);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lj-graphic-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 24px rgba(15, 76, 92, 0.12);
+}
+
+.lj-graphic-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f4c5c;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lj-graphic-card canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 150px;
+  margin: 8px 0;
+}
+
+.lj-graphic-value {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #0f4c5c 0%, #1a6b7a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: 8px;
+}
+
+/* Responsividade para gráficos */
+@media (max-width: 768px) {
+  .lj-graphics-container {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 16px;
+  }
+
+  .lj-graphic-card {
+    padding: 12px;
+  }
+
+  .lj-graphic-value {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lj-graphics-container {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .lj-graphic-card {
+    padding: 16px;
+  }
+
+  .lj-graphics-title {
+    font-size: 18px;
+  }
+}
